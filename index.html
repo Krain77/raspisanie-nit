@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расписание — группы (редактируемые номера) + справочники</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; }
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(145deg, #eef2f7 0%, #d9e2ef 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(300px, 1fr));
+            gap: 16px;
+            max-width: 3000px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .group-schedule {
+            display: flex;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(2px);
+            border-radius: 20px;
+            padding: 12px;
+            box-shadow: 0 8px 20px rgba(0,20,40,0.15);
+            border: 1px solid rgba(255,255,255,0.6);
+            transition: background-color 0.2s;
+        }
+        .group-schedule:hover {
+            box-shadow: 0 14px 28px rgba(0,25,50,0.25);
+        }
+        .group-number {
+            writing-mode: vertical-rl;
+            font-size: 2rem;
+            font-weight: 800;
+            color: #1e3a5f;
+            background: #ffffffd9;
+            padding: 14px 3px;
+            border-radius: 0 18px 18px 0;
+            border: 3px solid #1e3a5f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 2px;
+            line-height: 1.2;
+            text-transform: uppercase;
+            transform: rotate(180deg);
+            min-width: 42px;
+            cursor: pointer; /* указывает на возможность редактирования */
+        }
+        .group-number[contenteditable="true"]:focus {
+            outline: 2px solid #1e3a5f;
+            background-color: #e3f0ff;
+        }
+        /* Новый элемент для выбора цвета */
+        .color-picker {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #1e3a5f;
+            background-color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            align-self: center;
+            margin-left: 8px;
+            transition: transform 0.1s, box-shadow 0.1s;
+            flex-shrink: 0;
+        }
+        .color-picker:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0,20,40,0.3);
+        }
+        .card {
+            background: white;
+            border-radius: 0 18px 18px 0;
+            border: 3px solid #1e3a5f;
+            border-left: 0;
+            padding: 14px;
+            min-width: 0;
+            flex: 1;
+        }
+        .card h3 {
+            margin: 0 0 12px 0;
+            font-weight: 500;
+            font-size: 1.1rem;
+            color: #1e2f4d;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .card h3::before {
+            content: "📚";
+            font-size: 1.2rem;
+            margin-right: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,20,40,0.08);
+            font-size: 0.75rem;
+            table-layout: fixed;
+        }
+        th {
+            background-color: #1e3a5f;
+            color: white;
+            font-weight: 600;
+            font-size: 0.7rem;
+            padding: 8px 6px;
+            text-align: left;
+            border-right: 1px solid #2e4a75;
+        }
+        th:last-child { border-right: none; }
+        td {
+            border: 1px solid #d9e2ef;
+            padding: 4px 4px;
+            transition: background-color 0.1s;
+            vertical-align: middle;
+            line-height: 1.4;
+        }
+        td input {
+            width: 100%;
+            border: none;
+            padding: 6px 4px;
+            font-size: 0.75rem;
+            font-family: inherit;
+            background: transparent;
+            outline: none;
+            border-radius: 6px;
+        }
+        td input:focus {
+            background-color: #e3f0ff;
+            outline: 1px solid #1e3a5f;
+        }
+        td.time-cell {
+            background-color: #f4f9ff;
+            font-weight: 500;
+            padding: 6px 4px;
+        }
+        [contenteditable="true"] {
+            background-color: #ffffff;
+            cursor: text;
+            padding: 6px 4px;
+        }
+        [contenteditable="true"]:hover { background-color: #f0f7ff; }
+        [contenteditable="true"]:focus {
+            outline: 2px solid #1e3a5f;
+            background-color: #e3f0ff;
+        }
+        tbody tr:nth-child(even) { background-color: #f9fcff; }
+        th:nth-child(1), td:nth-child(1) { width: 28%; }
+        th:nth-child(2), td:nth-child(2) { width: 34%; }
+        th:nth-child(3), td:nth-child(3) { width: 24%; }
+        th:nth-child(4), td:nth-child(4) { width: 14%; }
+
+        @media (max-width: 1000px) {
+            .grid-container { grid-template-columns: repeat(3, minmax(260px, 1fr)); }
+        }
+        @media (max-width: 700px) {
+            .grid-container { grid-template-columns: 1fr; }
+            .group-number {
+                font-size: 2.4rem;
+                writing-mode: horizontal-tb;
+                transform: none;
+                padding: 8px 16px;
+                min-width: auto;
+            }
+            .card h3 { font-size: 1.3rem; }
+            table { font-size: 0.9rem; }
+            .color-picker {
+                width: 24px;
+                height: 24px;
+                margin-left: 4px;
+            }
+        }
+        @media (max-width: 480px) {
+            .group-schedule { flex-direction: column; }
+            .group-number {
+                writing-mode: horizontal-tb;
+                transform: none;
+                align-self: flex-start;
+            }
+            .color-picker {
+                align-self: flex-end;
+                margin-top: 4px;
+            }
+        }
+
+        .fixed-panel {
+            position: fixed;
+            bottom: 12px;
+            right: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            background: #ffffffd0;
+            padding: 6px 16px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            font-size: 0.9rem;
+        }
+
+        .screenshot-btn {
+            background: #1e3a5f;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 32px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 2px 6px rgba(0,20,40,0.3);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .screenshot-btn:hover {
+            background: #2b4b77;
+            transform: scale(1.02);
+        }
+        .screenshot-btn:active { transform: scale(0.98); }
+        .info-text { color: #1e3a5f; white-space: nowrap; }
+        body { padding-bottom: 60px; }
+    </style>
+</head>
+<body>
+
+<!-- Контейнер для расписания -->
+<div class="grid-container" id="scheduleGrid"></div>
+
+<!-- Кнопка скриншота (без изменений) -->
+<div class="fixed-panel">
+    <button class="screenshot-btn" id="wordExportBtn">
+    📄 Скачать Word (Times New Roman 14)
+    </button>
+    <button class="screenshot-btn" id="screenshotBtn">
+        📸 Скачать PNG (расписание)
+    </button>
+    <span class="info-text">📅 Группы · номера редактируются · данные сохраняются</span>
+</div>
+
+<!-- Шаблон карточки группы (добавлен элемент .color-picker) -->
+<template id="group-template">
+    <div class="group-schedule">
+        <div class="group-number" contenteditable="true">473</div>
+        <div class="color-picker" title="Изменить цвет группы"></div>
+        <div class="card">
+            <h3>Расписание на сегодня</h3>
+            <table class="editable-table">
+                <thead>
+                    <tr><th>Время</th><th>Предмет</th><th>Препод.</th><th>Каб</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="time-cell" contenteditable="true">8:30-9:50</td><td></td><td></td><td></td></tr>
+                    <tr><td class="time-cell" contenteditable="true">10:10-11:30</td><td></td><td></td><td></td></tr>
+                    <tr><td class="time-cell" contenteditable="true">11:40-13:20</td><td></td><td></td><td></td></tr>
+                    <tr><td class="time-cell" contenteditable="true">13:30-14:50</td><td></td><td></td><td></td></tr>
+                    <tr><td class="time-cell" contenteditable="true">15:00-16:20</td><td></td><td></td><td></td></tr>
+                    <tr><td class="time-cell" contenteditable="true">16:30-17:50</td><td></td><td></td><td></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</template>
+
+<!-- Контейнеры для datalist (заполняются динамически) -->
+<datalist id="subjects-datalist"></datalist>
+<datalist id="teachers-datalist"></datalist>
+<datalist id="rooms-datalist"></datalist>
+
+<script>
+(function() {
+    // ------ Цвета для групп (5 предустановленных цветов) ------
+    const COLOR_PRESETS = [
+        'rgba(193, 255, 193, 0.5)', // 1 курс светло-зеленый
+        'rgba(255, 218, 185, 0.5)', // 2 курс персиковый
+        'rgba(176, 224, 230, 0.5)', // 3 курс светло-голубой
+        'rgba(255, 182, 193, 0.5)', // 4 курс светло-розовый
+        'rgba(230, 230, 250, 0.5)'  // 5 курс лавандовый
+    ];
+
+    // ------ Функции для работы с цветами групп (localStorage) ------
+    function getGroupColors() {
+        try {
+            return JSON.parse(localStorage.getItem('groupColors')) || {};
+        } catch {
+            return {};
+        }
+    }
+
+    function saveGroupColors(colors) {
+        localStorage.setItem('groupColors', JSON.stringify(colors));
+    }
+
+    // ------ Вспомогательные функции для работы со справочниками (localStorage) ------
+    function getDictionary(key, defaultValue = []) {
+        try {
+            const data = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(data)) {
+                return data.map(item => {
+                    if (typeof item === 'string') return item;
+                    if (item && typeof item === 'object' && item.name) return item.name;
+                    return String(item);
+                });
+            }
+        } catch (e) {}
+        return defaultValue;
+    }
+
+    // Загружаем актуальные списки
+    let subjects = getDictionary('subjects', ['Русский язык', 'Литература', 'Математика', 'Иностранный язык']);
+    let teachers = getDictionary('teachers', ['Никошина Н.И.', 'Михеев А.И.', 'Бубнова Д.И.', 'Газизова З.У.']);
+    let rooms = getDictionary('rooms', ['408', '403', '2.2', '103', '301']);
+
+    // Обновляем datalist в DOM
+    function updateDatalists() {
+        const subjectsList = document.getElementById('subjects-datalist');
+        const teachersList = document.getElementById('teachers-datalist');
+        const roomsList = document.getElementById('rooms-datalist');
+        subjectsList.innerHTML = subjects.map(s => `<option value="${s.replace(/"/g, '&quot;')}">`).join('');
+        teachersList.innerHTML = teachers.map(t => `<option value="${t.replace(/"/g, '&quot;')}">`).join('');
+        roomsList.innerHTML = rooms.map(r => `<option value="${r.replace(/"/g, '&quot;')}">`).join('');
+    }
+    updateDatalists();
+
+    // ------ Работа со списком групп ------
+    function getGroups() {
+        let groups = getDictionary('groups');
+        if (groups.length === 0) {
+            groups = Array.from({ length: 24 }, (_, i) => String(473 + i));
+            localStorage.setItem('groups', JSON.stringify(groups));
+        }
+        return groups;
+    }
+
+    function saveGroups(groups) {
+        localStorage.setItem('groups', JSON.stringify(groups));
+    }
+
+    // ------ Работа с расписанием ------
+    const SCHEDULE_KEY = 'schedule';
+    function loadSchedule() {
+        try {
+            return JSON.parse(localStorage.getItem(SCHEDULE_KEY)) || {};
+        } catch {
+            return {};
+        }
+    }
+
+    function saveSchedule(schedule) {
+        localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedule));
+    }
+
+    function getGroupSchedule(groupNumber) {
+        const all = loadSchedule();
+        return all[groupNumber] || [];
+    }
+
+    function updateCell(groupNumber, rowIndex, colIndex, value) {
+        const all = loadSchedule();
+        if (!all[groupNumber]) {
+            all[groupNumber] = Array(6).fill().map(() => ['', '', '', '']);
+        }
+        if (!all[groupNumber][rowIndex]) {
+            all[groupNumber][rowIndex] = ['', '', '', ''];
+        }
+        all[groupNumber][rowIndex][colIndex] = value;
+        saveSchedule(all);
+    }
+
+    // ------ Рендер всех карточек по актуальному списку групп ------
+    const grid = document.getElementById('scheduleGrid');
+    const template = document.getElementById('group-template');
+
+    function renderAllGroups() {
+        const groups = getGroups();
+        const groupColors = getGroupColors();
+        grid.innerHTML = '';
+
+        groups.forEach(groupNumber => {
+            const clone = template.content.cloneNode(true);
+            const groupScheduleDiv = clone.querySelector('.group-schedule');
+            const groupNumberDiv = clone.querySelector('.group-number');
+            const colorPicker = clone.querySelector('.color-picker');
+            groupNumberDiv.textContent = groupNumber;
+            groupNumberDiv.dataset.original = groupNumber;
+
+            if (groupColors[groupNumber]) {
+                groupScheduleDiv.style.backgroundColor = groupColors[groupNumber];
+                colorPicker.style.backgroundColor = groupColors[groupNumber];
+            } else {
+                colorPicker.style.backgroundColor = 'rgba(255,255,255,0.7)';
+            }
+
+            colorPicker.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const group = groupNumberDiv.dataset.original;
+                const currentColors = getGroupColors();
+                const currentColor = currentColors[group] || null;
+                let nextColor;
+
+                if (!currentColor) {
+                    nextColor = COLOR_PRESETS[0];
+                } else {
+                    const index = COLOR_PRESETS.indexOf(currentColor);
+                    if (index === -1 || index === COLOR_PRESETS.length - 1) {
+                        nextColor = COLOR_PRESETS[0];
+                    } else {
+                        nextColor = COLOR_PRESETS[index + 1];
+                    }
+                }
+
+                groupScheduleDiv.style.backgroundColor = nextColor;
+                colorPicker.style.backgroundColor = nextColor;
+                currentColors[group] = nextColor;
+                saveGroupColors(currentColors);
+            });
+
+            const table = clone.querySelector('table');
+            const tbody = table.querySelector('tbody');
+            const rows = tbody.querySelectorAll('tr');
+
+            const savedRows = getGroupSchedule(String(groupNumber));
+
+            rows.forEach((row, rowIndex) => {
+                const cells = row.querySelectorAll('td');
+                const timeCell = cells[0];
+                timeCell.classList.add('time-cell');
+                timeCell.setAttribute('contenteditable', 'true');
+                if (savedRows[rowIndex] && savedRows[rowIndex][0]) {
+                    timeCell.textContent = savedRows[rowIndex][0];
+                }
+
+                for (let col = 1; col <= 3; col++) {
+                    const oldCell = cells[col];
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.setAttribute('autocomplete', 'off');
+                    if (col === 1) input.setAttribute('list', 'subjects-datalist');
+                    else if (col === 2) input.setAttribute('list', 'teachers-datalist');
+                    else if (col === 3) input.setAttribute('list', 'rooms-datalist');
+
+                    if (savedRows[rowIndex] && savedRows[rowIndex][col]) {
+                        input.value = savedRows[rowIndex][col];
+                    }
+
+                    input.addEventListener('input', (function(gr, r, c) {
+                        return function(e) {
+                            updateCell(String(gr), r, c, e.target.value);
+                        };
+                    })(groupNumber, rowIndex, col));
+
+                    oldCell.innerHTML = '';
+                    oldCell.appendChild(input);
+                    oldCell.removeAttribute('contenteditable');
+                }
+            });
+
+            groupNumberDiv.addEventListener('blur', function(e) {
+                const oldNumber = this.dataset.original;
+                const newNumber = this.textContent.trim();
+
+                if (!newNumber) {
+                    this.textContent = oldNumber;
+                    return;
+                }
+
+                if (newNumber === oldNumber) return;
+
+                const currentGroups = getGroups();
+                if (currentGroups.includes(newNumber) && newNumber !== oldNumber) {
+                    alert('Группа с таким номером уже существует!');
+                    this.textContent = oldNumber;
+                    return;
+                }
+
+                const updatedGroups = currentGroups.map(g => g === oldNumber ? newNumber : g);
+                saveGroups(updatedGroups);
+
+                const schedule = loadSchedule();
+                if (schedule[oldNumber]) {
+                    schedule[newNumber] = schedule[oldNumber];
+                    delete schedule[oldNumber];
+                    saveSchedule(schedule);
+                }
+
+                const groupColors = getGroupColors();
+                if (groupColors[oldNumber]) {
+                    groupColors[newNumber] = groupColors[oldNumber];
+                    delete groupColors[oldNumber];
+                    saveGroupColors(groupColors);
+                }
+
+                renderAllGroups();
+            });
+
+            groupNumberDiv.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                }
+            });
+
+            grid.appendChild(clone);
+        });
+    }
+
+    renderAllGroups();
+
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'subjects' || e.key === 'teachers' || e.key === 'rooms') {
+            subjects = getDictionary('subjects', subjects);
+            teachers = getDictionary('teachers', teachers);
+            rooms = getDictionary('rooms', rooms);
+            updateDatalists();
+        }
+        if (e.key === 'groups') {
+            renderAllGroups();
+        }
+    });
+
+    // ----- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ЗАПРОСА ДАТЫ -----
+    function getDateFromUser() {
+        let defaultDate = '26 февраля 2026 г.';
+        let userDate = prompt('Введите дату (например, 26 февраля 2026 г.)', defaultDate);
+        if (userDate === null) userDate = defaultDate;
+        return userDate.trim() || defaultDate;
+    }
+
+    // ----- ЭКСПОРТ В WORD (с датой, объединением группы, только заполненные строки) -----
+    document.getElementById('wordExportBtn').addEventListener('click', function() {
+        const userDate = getDateFromUser();
+        const groups = document.querySelectorAll('.group-schedule');
+        const groupsData = [];
+
+        groups.forEach(group => {
+            const groupNumber = group.querySelector('.group-number').innerText.trim();
+            const rows = [];
+            const tableRows = group.querySelectorAll('tbody tr');
+
+            tableRows.forEach(row => {
+                const timeCell = row.querySelector('td.time-cell');
+                const time = timeCell ? timeCell.innerText.trim() : '';
+                const inputs = row.querySelectorAll('td input');
+                const subject = inputs[0] ? inputs[0].value.trim() : '';
+                const teacher = inputs[1] ? inputs[1].value.trim() : '';
+                const room = inputs[2] ? inputs[2].value.trim() : '';
+
+                if (!time && !subject && !teacher && !room) return;
+                rows.push({ time, subject, teacher, room });
+            });
+
+            if (rows.length > 0) groupsData.push({ group: groupNumber, rows });
+        });
+
+        let htmlContent = `
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Times New Roman', serif;
+                        font-size: 14pt;
+                        background: white;
+                        color: black;
+                        line-height: 1.3;
+                    }
+                    @page { margin: 2.5cm; }
+                    .wrapper { max-width: 100%; padding: 0; }
+                    .header { margin-bottom: 20px; }
+                    .header p { margin: 4px 0; }
+                    .title {
+                        font-weight: bold;
+                        text-align: center;
+                        font-size: 16pt;
+                        margin: 25px 0 15px 0;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        table-layout: fixed;
+                    }
+                    th, td {
+                        border: 1px solid #000000;
+                        padding: 6px 4px;
+                        vertical-align: top;
+                        text-align: left;
+                    }
+                    th {
+                        font-weight: bold;
+                        background: white;
+                    }
+                    .group-cell { font-weight: bold; }
+                    tr, td, th, tbody, thead { background: white !important; }
+                </style>
+            </head>
+            <body>
+                <div class="wrapper">
+                    <div class="header">
+                        <p><strong>Согласовано</strong></p>
+                        <p>Зам.директора поУР</p>
+                        <p>___________Т.А.Байрашова</p>
+                        <p>«${userDate}»</p>
+                    </div>
+                    <div class="title">Расписание замен на ${userDate}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 10%">Группа</th>
+                                <th style="width: 10%">Время</th>
+                                <th style="width: 40%">Наименование дисциплины</th>
+                                <th style="width: 25%">Ф.И.О. преподавателя</th>
+                                <th style="width: 15%">№ каб.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        groupsData.forEach(g => {
+            const rowCount = g.rows.length;
+            g.rows.forEach((row, index) => {
+                htmlContent += '<tr>';
+                if (index === 0) {
+                    htmlContent += `<td class="group-cell" rowspan="${rowCount}">${g.group}</td>`;
+                }
+                htmlContent += `<td>${row.time}</td><td>${row.subject}</td><td>${row.teacher}</td><td>${row.room}</td>`;
+                htmlContent += '</tr>';
+            });
+        });
+
+        htmlContent += `
+                        </tbody>
+                    </table>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([htmlContent], { type: 'application/msword' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `raspisanie_${userDate.replace(/\s+/g, '_')}.doc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    });
+
+    // ----- ЭКСПОРТ В PNG (с датой) -----
+    const screenshotBtn = document.getElementById('screenshotBtn');
+    const html2canvasCDNs = [
+        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/6.0.0/html2canvas.min.js',
+        'https://unpkg.com/html2canvas@6.0.0/dist/html2canvas.min.js',
+        'https://cdn.jsdelivr.net/npm/html2canvas@6.0.0/dist/html2canvas.min.js'
+    ];
+    const domtoimageCDNs = [
+        'https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js',
+        'https://unpkg.com/dom-to-image@2.6.0/dist/dom-to-image.min.js',
+        'https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/dist/dom-to-image.min.js'
+    ];
+
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function loadLibrary(cdnList, globalVarName) {
+        for (const src of cdnList) {
+            try {
+                await loadScript(src);
+                if (window[globalVarName]) {
+                    return true;
+                }
+            } catch (e) {
+                console.warn(`Не удалось загрузить ${src}`);
+            }
+        }
+        return false;
+    }
+
+    async function takeScreenshot() {
+        const userDate = getDateFromUser();
+
+        // Временный заголовок с датой
+        const dateHeader = document.createElement('div');
+        dateHeader.id = 'temp-date-header';
+        dateHeader.textContent = `Расписание на ${userDate}`;
+        dateHeader.style.cssText = `
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            background: #eef2f7;
+            padding: 10px;
+            border-radius: 12px;
+        `;
+        const grid = document.getElementById('scheduleGrid');
+        grid.parentNode.insertBefore(dateHeader, grid);
+
+        screenshotBtn.innerHTML = '⏳ Загрузка библиотеки...';
+        screenshotBtn.disabled = true;
+
+        let libraryLoaded = false;
+        let libraryType = null;
+
+        const html2canvasOk = await loadLibrary(html2canvasCDNs, 'html2canvas');
+        if (html2canvasOk) {
+            libraryLoaded = true;
+            libraryType = 'html2canvas';
+        } else {
+            const domtoimageOk = await loadLibrary(domtoimageCDNs, 'domtoimage');
+            if (domtoimageOk) {
+                libraryLoaded = true;
+                libraryType = 'domtoimage';
+            }
+        }
+
+        if (!libraryLoaded) {
+            alert('Не удалось загрузить библиотеку для скриншота. Проверьте подключение к интернету или сделайте скриншот вручную (Print Screen).');
+            dateHeader.remove();
+            screenshotBtn.innerHTML = '📸 Скачать PNG (расписание)';
+            screenshotBtn.disabled = false;
+            return;
+        }
+
+        screenshotBtn.innerHTML = '⏳ Создание скриншота...';
+
+        const element = document.getElementById('scheduleGrid');
+        const options = {
+            scale: 2,
+            backgroundColor: '#eef2f7',
+            allowTaint: false,
+            useCORS: true,
+            logging: false,
+            windowWidth: element.scrollWidth,
+            windowHeight: element.scrollHeight
+        };
+
+        try {
+            let canvas;
+            if (libraryType === 'html2canvas') {
+                canvas = await window.html2canvas(element, options);
+            } else {
+                const width = element.offsetWidth;
+                const height = element.offsetHeight;
+                const scaledWidth = width * 2;
+                const scaledHeight = height * 2;
+
+                const dataUrl = await window.domtoimage.toPng(element, {
+                    width: scaledWidth,
+                    height: scaledHeight,
+                    style: {
+                        transform: 'scale(2)',
+                        transformOrigin: 'top left',
+                        width: width + 'px',
+                        height: height + 'px'
+                    }
+                });
+                canvas = document.createElement('canvas');
+                canvas.width = scaledWidth;
+                canvas.height = scaledHeight;
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0);
+                        resolve();
+                    };
+                    img.onerror = reject;
+                    img.src = dataUrl;
+                });
+            }
+
+            dateHeader.remove(); // удаляем заголовок после создания скриншота
+
+            const link = document.createElement('a');
+            link.download = `raspisanie_${userDate.replace(/\s+/g, '_')}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (error) {
+            console.error('Ошибка создания скриншота:', error);
+            alert('Не удалось создать скриншот. Попробуйте ещё раз.');
+            dateHeader.remove();
+        } finally {
+            screenshotBtn.innerHTML = '📸 Скачать PNG (расписание)';
+            screenshotBtn.disabled = false;
+        }
+    }
+
+    screenshotBtn.addEventListener('click', takeScreenshot);
+})();
+</script>
+<!-- Ссылка на страницу управления справочниками -->
+<div style="position: fixed; bottom: 12px; left: 16px; background: #ffffffd0; padding: 6px 16px; border-radius: 40px; backdrop-filter: blur(4px);">
+    <a href="index-inner.html" target="_blank" style="color: #1e3a5f; text-decoration: none; font-weight: 600;">⚙️ Управление справочниками</a>
+</div>
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление справочниками (включая группы)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(145deg, #eef2f7 0%, #d9e2ef 100%);
+            min-height: 100vh;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(4px);
+            border-radius: 32px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,20,40,0.2);
+        }
+        h1 {
+            color: #1e3a5f;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        h1 a {
+            font-size: 1rem;
+            text-decoration: none;
+            background: #1e3a5f;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 40px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .toolbar button {
+            background: #2b4b77;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.95rem;
+        }
+        .toolbar button:hover {
+            background: #1e3a5f;
+        }
+        .toolbar button.reset-btn {
+            background: #6c757d;
+        }
+        .toolbar button.reset-btn:hover {
+            background: #5a6268;
+        }
+        .section {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .section h2 {
+            color: #1e3a5f;
+            margin-top: 0;
+            font-weight: 500;
+            border-bottom: 2px solid #d9e2ef;
+            padding-bottom: 10px;
+        }
+        .add-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .add-form input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #d9e2ef;
+            border-radius: 40px;
+            font-size: 1rem;
+        }
+        .add-form button {
+            background: #1e3a5f;
+            color: white;
+            border: none;
+            padding: 0 30px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .add-form button:hover {
+            background: #2b4b77;
+        }
+        .item-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .item {
+            background: #eef2f7;
+            padding: 8px 16px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #d9e2ef;
+        }
+        .item span {
+            font-size: 1rem;
+        }
+        .item button {
+            background: none;
+            border: none;
+            color: #b00020;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .item button:hover {
+            color: #ff0000;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #1e3a5f;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Управление справочниками <a href="index.html">← на главную</a></h1>
+
+        <div class="toolbar">
+            <button id="exportBtn">📥 Экспорт в JSON</button>
+            <button id="importBtn">📤 Импорт из JSON</button>
+            <button id="resetBtn" class="reset-btn">🔄 Сбросить к умолчанию</button>
+        </div>
+        <input type="file" id="fileInput" class="file-input" accept="application/json">
+
+        <!-- Группы -->
+        <div class="section" id="groups-section">
+            <h2>👥 Группы</h2>
+            <div class="add-form">
+                <input type="text" id="newGroup" placeholder="Номер группы">
+                <button id="addGroupBtn">Добавить</button>
+            </div>
+            <div class="item-list" id="groupsList"></div>
+        </div>
+
+        <!-- Предметы -->
+        <div class="section" id="subjects-section">
+            <h2>📚 Предметы</h2>
+            <div class="add-form">
+                <input type="text" id="newSubject" placeholder="Новый предмет">
+                <button id="addSubjectBtn">Добавить</button>
+            </div>
+            <div class="item-list" id="subjectsList"></div>
+        </div>
+
+        <!-- Преподаватели -->
+        <div class="section" id="teachers-section">
+            <h2>👩‍🏫 Преподаватели</h2>
+            <div class="add-form">
+                <input type="text" id="newTeacher" placeholder="Новый преподаватель">
+                <button id="addTeacherBtn">Добавить</button>
+            </div>
+            <div class="item-list" id="teachersList"></div>
+        </div>
+
+        <!-- Кабинеты -->
+        <div class="section" id="rooms-section">
+            <h2>🚪 Кабинеты</h2>
+            <div class="add-form">
+                <input type="text" id="newRoom" placeholder="Новый кабинет">
+                <button id="addRoomBtn">Добавить</button>
+            </div>
+            <div class="item-list" id="roomsList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Универсальные функции работы с localStorage (все справочники хранятся как массив строк)
+        function getItems(key) {
+            return JSON.parse(localStorage.getItem(key)) || [];
+        }
+
+        function saveItems(key, items) {
+            localStorage.setItem(key, JSON.stringify(items));
+        }
+
+        // Нормализация (приведение к массиву строк)
+        function normalizeKey(key) {
+            let data = getItems(key);
+            if (!Array.isArray(data)) {
+                data = [];
+            }
+            // Если элементы — объекты с полем name, извлекаем name
+            data = data.map(item => {
+                if (item && typeof item === 'object' && item.name) return item.name;
+                return String(item);
+            });
+            saveItems(key, data);
+        }
+
+        // Рендер конкретного списка
+        function renderList(key, containerId) {
+            const items = getItems(key);
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            items.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerHTML = `<span>${item}</span>
+                    <button class="delete-btn" data-key="${key}" data-index="${index}">✕</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        // Добавление элемента
+        function addItem(key, name) {
+            if (!name.trim()) return;
+            const items = getItems(key);
+            items.push(name.trim());
+            saveItems(key, items);
+            renderAll();
+        }
+
+        // Удаление по индексу
+        function deleteItem(key, index) {
+            let items = getItems(key);
+            items.splice(index, 1);
+            saveItems(key, items);
+            renderAll();
+        }
+
+        // Рендер всех разделов
+        function renderAll() {
+            renderList('groups', 'groupsList');
+            renderList('subjects', 'subjectsList');
+            renderList('teachers', 'teachersList');
+            renderList('rooms', 'roomsList');
+        }
+
+        // Сброс к умолчанию
+        function resetToDefaults() {
+            const defaultGroups = [
+            /*Первый курс*/ "472/472к", "473", "474/474к", "475/475к", "476", "477", "478/478к", "479/479к",
+            /*Второй курс*/"465/465к", "466", "467/467к", "468/468к", "469/469к", "470/470к", "471" ,  
+            /*Третий курс*/"459", "461", "462", "463", "464",
+            /*Четвертый курс*/"455", "456", "457", 
+            /*Пятый курс*/ "449" ];
+            const defaultSubjects = ['Русский язык', 'Литература', 'Математика', 'Иностранный язык', 'Физика', 'История', 'Химия', 'Биология'];
+            const defaultTeachers = ['Никошина Н.И.', 'Михеев А.И.', 'Бубнова Д.И.', 'Газизова З.У.', 'Петров В.В.', 'Сидорова Е.А.'];
+            const defaultRooms = ['408', '403', '2.2', '103', '301', '202', '104', '405'];
+
+            saveItems('groups', defaultGroups);
+            saveItems('subjects', defaultSubjects);
+            saveItems('teachers', defaultTeachers);
+            saveItems('rooms', defaultRooms);
+            renderAll();
+        }
+
+        // Экспорт всех справочников в JSON
+        function exportData() {
+            const data = {
+                groups: getItems('groups'),
+                subjects: getItems('subjects'),
+                teachers: getItems('teachers'),
+                rooms: getItems('rooms')
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dictionaries_backup.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Импорт из JSON (заменяет все данные)
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.groups && Array.isArray(data.groups)) saveItems('groups', data.groups);
+                    if (data.subjects && Array.isArray(data.subjects)) saveItems('subjects', data.subjects);
+                    if (data.teachers && Array.isArray(data.teachers)) saveItems('teachers', data.teachers);
+                    if (data.rooms && Array.isArray(data.rooms)) saveItems('rooms', data.rooms);
+                    renderAll();
+                } catch (err) {
+                    alert('Ошибка при загрузке файла: неверный формат JSON');
+                }
+                document.getElementById('fileInput').value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            // Нормализуем все ключи (если вдруг там объекты)
+            ['groups', 'subjects', 'teachers', 'rooms'].forEach(normalizeKey);
+
+            // Если какие-то ключи отсутствуют, устанавливаем defaults
+            if (!localStorage.getItem('groups') || getItems('groups').length === 0) resetToDefaults();
+            if (!localStorage.getItem('subjects') || getItems('subjects').length === 0) resetToDefaults();
+            if (!localStorage.getItem('teachers') || getItems('teachers').length === 0) resetToDefaults();
+            if (!localStorage.getItem('rooms') || getItems('rooms').length === 0) resetToDefaults();
+
+            renderAll();
+
+            // Добавление
+            document.getElementById('addGroupBtn').addEventListener('click', () => {
+                const input = document.getElementById('newGroup');
+                addItem('groups', input.value);
+                input.value = '';
+            });
+            document.getElementById('addSubjectBtn').addEventListener('click', () => {
+                const input = document.getElementById('newSubject');
+                addItem('subjects', input.value);
+                input.value = '';
+            });
+            document.getElementById('addTeacherBtn').addEventListener('click', () => {
+                const input = document.getElementById('newTeacher');
+                addItem('teachers', input.value);
+                input.value = '';
+            });
+            document.getElementById('addRoomBtn').addEventListener('click', () => {
+                const input = document.getElementById('newRoom');
+                addItem('rooms', input.value);
+                input.value = '';
+            });
+
+            // Удаление (делегирование)
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-btn')) {
+                    const key = e.target.dataset.key;
+                    const index = e.target.dataset.index;
+                    deleteItem(key, index);
+                }
+            });
+
+            // Экспорт/импорт
+            document.getElementById('exportBtn').addEventListener('click', exportData);
+            document.getElementById('importBtn').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+            document.getElementById('fileInput').addEventListener('change', importData);
+            document.getElementById('resetBtn').addEventListener('click', resetToDefaults);
+        });
+    </script>
+</body>
+</html>
